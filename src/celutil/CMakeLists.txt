@@ -1,4 +1,5 @@
 set(CELUTIL_SOURCES
+  arraymap.h
   bigfix.cpp
   bigfix.h
   blockarray.h
