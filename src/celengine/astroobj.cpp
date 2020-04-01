@@ -5,16 +5,92 @@
 #include "astroobj.h"
 #include "category.h"
 
-void AstroObject::setIndex(AstroCatalog::IndexNumber nr)
+AstroObject::AstroObject(AstroObject &&o)
 {
-    if (m_mainIndexNumber != AstroCatalog::InvalidIndex)
-        DPRINTF(LOG_LEVEL_WARNING, "AstroObject::setIndex(%u) on object with already set index: %u!\n", nr, m_mainIndexNumber);
-    m_mainIndexNumber = nr;
+    m_mainIndexNumber = o.getIndex();
+    assignIndexNumber(this);
+    setInMainIndexFlag(true);
+    o.setInMainIndexFlag(false);
+
+    auto cats = o.getCategories();
+    if (cats != nullptr)
+        for (auto *cat : *cats)
+            addToCategory(cat);
+    o.clearCategories();
+}
+
+AstroObject::~AstroObject()
+{
+    if (inMainIndexFlag())
+    {
+//         fmt::printf("  ~AstroObject(): Freeing number %u by %p.\n", m_mainIndexNumber, this);
+        freeIndexNumber(getIndex());
+    }
+
+    clearCategories();
 }
 
 Selection AstroObject::toSelection()
 {
     return Selection(this);
+}
+
+bool AstroObject::isInMainIndex() const
+{
+    return inMainIndexFlag() && getIndex() != AstroCatalog::InvalidIndex && find(getIndex()) == this;
+}
+
+void AstroObject::setIndex(AstroCatalog::IndexNumber i)
+{
+    if (inMainIndexFlag() && i != AstroCatalog::InvalidIndex)
+        freeIndexNumber(getIndex());
+    m_mainIndexNumber = i;
+}
+
+void AstroObject::addToMainIndex(bool checkUsed)
+{
+    if (getIndex() == AstroCatalog::InvalidIndex)
+        return;
+    setInMainIndexFlag(true);
+    if (checkUsed)
+    {
+        auto o = find(getIndex());
+        if (o == this)
+            return;
+        if (o != nullptr)
+            o->setInMainIndexFlag(false);
+    }
+    assignIndexNumber(this);
+}
+
+void AstroObject::setIndexAndAdd(AstroCatalog::IndexNumber nr, bool checkUsed)
+{
+    if (getIndex() == nr)
+        return;
+    setIndex(nr);
+    addToMainIndex(checkUsed);
+}
+
+bool AstroObject::removeFromMainIndex()
+{
+    if (!inMainIndexFlag() || getIndex() == AstroCatalog::InvalidIndex)
+        return false;
+    freeIndexNumber(getIndex());
+    setInMainIndexFlag(false);
+    return true;
+}
+
+AstroCatalog::IndexNumber AstroObject::setAutoIndex()
+{
+    auto i = getAutoIndexAndUpdate();
+    setIndexAndAdd(i);
+    return i;
+}
+
+AstroObject *AstroObject::find(AstroCatalog::IndexNumber i)
+{
+//     fmt::fprintf(cout, "AstroObject::find(%u)\n", i);
+    return m_mainIndex.getValue(i);
 }
 
 bool AstroObject::_addToCategory(UserCategory *c)
@@ -126,3 +202,7 @@ bool AstroObject::loadCategories(Hash *hash, DataDisposition disposition, const 
     }
     return ret;
 }
+
+AstroObject::MainIndex AstroObject::m_mainIndex;
+
+AstroCatalog::IndexNumber AstroObject::m_autoIndex { MaxAutoIndex };
