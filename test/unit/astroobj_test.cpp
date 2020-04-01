@@ -36,9 +36,7 @@ TEST_CASE("AstroObject", "[AstroObject]")
             REQUIRE(s3.inMainIndexFlag() == true);
             REQUIRE(AstroObject::find(1) == &s3);
             REQUIRE(Star::find(1) == &s3);
-            dump();
         }
-        dump();
         REQUIRE(AstroObject::find(1) == nullptr);
         REQUIRE(Star::find(1) == nullptr);
         auto id = AstroObject::getAutoIndex();
